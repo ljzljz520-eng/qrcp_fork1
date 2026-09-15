@@ -13,6 +13,7 @@ type Flags struct {
 	Config            string
 	Browser           bool
 	Secure            bool
+	Ephemeral         bool
 	TlsCert           string
 	TlsKey            string
 	Output            string

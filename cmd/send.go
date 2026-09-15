@@ -26,6 +26,9 @@ func sendCmdFunc(command *cobra.Command, args []string) error {
 	}
 	// Sets the body
 	srv.Send(body)
+	if srv.Ephemeral {
+		printEphemeralFingerprint(log, srv)
+	}
 	log.Print(`Scan the following URL with a QR reader to start the file transfer, press CTRL+C or "q" to exit:`)
 	log.Print(srv.SendURL)
 	qr.RenderString(srv.SendURL, cfg.Reversed)
@@ -51,6 +54,15 @@ func sendCmdFunc(command *cobra.Command, args []string) error {
 		return err
 	}
 	return nil
+}
+
+// printEphemeralFingerprint prints the ephemeral TLS fingerprints and the
+// instructions the user needs to verify the connection on the phone.
+func printEphemeralFingerprint(log logger.Logger, srv *server.Server) {
+	log.Print("Ephemeral TLS enabled: a temporary Ed25519 identity and a self-signed certificate were generated for this session.")
+	log.Print(fmt.Sprintf("Certificate fingerprint (SHA-256): %s", srv.CertFingerprint))
+	log.Print(fmt.Sprintf("Verify this short fingerprint on your phone: %s", srv.ShortFingerprint()))
+	log.Print("Note: your phone browser may warn that the certificate is untrusted; choose to continue, then compare the fingerprint shown on the page.")
 }
 
 var sendCmd = &cobra.Command{

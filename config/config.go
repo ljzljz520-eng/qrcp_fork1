@@ -24,6 +24,7 @@ type Config struct {
 	KeepAlive bool   `yaml:",omitempty"`
 	Path      string `yaml:",omitempty"`
 	Secure    bool   `yaml:",omitempty"`
+	Ephemeral bool   `yaml:",omitempty"`
 	TlsKey    string `yaml:",omitempty"`
 	TlsCert   string `yaml:",omitempty"`
 	FQDN      string `yaml:",omitempty"`
@@ -60,6 +61,7 @@ func New(app application.App) Config {
 	cfg.KeepAlive = v.GetBool("keepAlive")
 	cfg.Path = v.GetString("path")
 	cfg.Secure = v.GetBool("secure")
+	cfg.Ephemeral = v.GetBool("ephemeral")
 	cfg.TlsKey = v.GetString("tls-key")
 	cfg.TlsCert = v.GetString("tls-cert")
 	cfg.FQDN = v.GetString("fqdn")
@@ -84,6 +86,9 @@ func New(app application.App) Config {
 	}
 	if app.Flags.Secure {
 		cfg.Secure = true
+	}
+	if app.Flags.Ephemeral {
+		cfg.Ephemeral = true
 	}
 	if app.Flags.TlsKey != "" {
 		cfg.TlsKey = app.Flags.TlsKey
@@ -265,23 +270,37 @@ func Wizard(app application.App) error {
 		cfg.Secure = v.GetBool("secure")
 	}
 	if cfg.Secure {
-		// TLS Cert
-		promptTlsCert := promptui.Prompt{
-			Label:    "Choose TLS certificate path. Empty if not using HTTPS.",
-			Default:  cfg.TlsCert,
-			Validate: pathIsReadableFile,
+		promptTLSMode := promptui.Select{
+			Items: []string{
+				"Ephemeral: generate a temporary self-signed certificate on every run (with fingerprint confirmation)",
+				"Custom: provide my own TLS certificate and key",
+			},
+			Label: "Choose the TLS certificate mode",
 		}
-		if promptTlsCertString, err := promptTlsCert.Run(); err == nil {
-			v.Set("tls-cert", util.Expand(promptTlsCertString))
-		}
-		// TLS key
-		promptTlsKey := promptui.Prompt{
-			Label:    "Choose TLS certificate key. Empty if not using HTTPS.",
-			Default:  cfg.TlsKey,
-			Validate: pathIsReadableFile,
-		}
-		if promptTlsKeyString, err := promptTlsKey.Run(); err == nil {
-			v.Set("tls-key", util.Expand(promptTlsKeyString))
+		if _, promptTLSModeResultString, err := promptTLSMode.Run(); err == nil {
+			if strings.HasPrefix(promptTLSModeResultString, "Ephemeral") {
+				v.Set("ephemeral", true)
+				cfg.Ephemeral = true
+			} else {
+				// TLS Cert
+				promptTlsCert := promptui.Prompt{
+					Label:    "Choose TLS certificate path. Empty if not using HTTPS.",
+					Default:  cfg.TlsCert,
+					Validate: pathIsReadableFile,
+				}
+				if promptTlsCertString, err := promptTlsCert.Run(); err == nil {
+					v.Set("tls-cert", util.Expand(promptTlsCertString))
+				}
+				// TLS key
+				promptTlsKey := promptui.Prompt{
+					Label:    "Choose TLS certificate key. Empty if not using HTTPS.",
+					Default:  cfg.TlsKey,
+					Validate: pathIsReadableFile,
+				}
+				if promptTlsKeyString, err := promptTlsKey.Run(); err == nil {
+					v.Set("tls-key", util.Expand(promptTlsKeyString))
+				}
+			}
 		}
 	}
 	validateIsDir := func(input string) error {
